@@ -1,0 +1,80 @@
+### MODELING --------------------------------------------
+#1 안쓰이는 변수 제거 및 train,test 나누기
+#data$latitude <- as.numeric(data$latitude)
+#data$longitude <- as.numeric(data$longitude)
+
+data_backup <- data
+data$dong2 <- as.numeric(data$dong2)
+data$bus_route_id2 <- as.numeric(data$bus_route_id2)
+data$station_code2 <- as.numeric(data$station_code2)
+data$route_station_weekday2 <- as.numeric(data$route_station_weekday2)
+str(data,list.len=nrow(data)) #전부 numeric
+
+#data_na <- data[!complete.cases(data),]
+#dim(data_na)
+#data_naomit <- data
+#data_naomit[is.na(data_naomit)] <- 0
+
+data_train <- data %>% filter(cue==0)
+data_test <- data %>% filter(cue==1)
+
+data_train_clean <- data_train %>% select(-c(id,date,bus_route_id,station_code,station_name,weekday,route_station,bus_route_id_weekday,station_code_weekday,route_station_weekday,mean_bus_weekday_ride,mean_station_weekday_ride,mean_route_station_weekday_ride,location,cue,route_station2,dong,si,dist_jeju,dist_gosan,dist_seongsan,dist_po,dist_name))
+data_test_clean <- data_test %>% select(-c(id,date,bus_route_id,station_code,station_name,weekday,route_station,bus_route_id_weekday,station_code_weekday,route_station_weekday,mean_bus_weekday_ride,mean_station_weekday_ride,mean_route_station_weekday_ride,location,cue,route_station2,dong,si,dist_jeju,dist_gosan,dist_seongsan,dist_po,dist_name))
+
+data_train_clean$dong2[is.na(data_train_clean$dong2)] <- 0
+data_train_clean$`si_제주시`[is.na(data_train_clean$`si_제주시`)] <- 0
+data_train_clean$`si_서귀포시`[is.na(data_train_clean$`si_서귀포시``)] <- 0
+
+
+# 90개 column들을 가진 dataset 4개 만들기
+xvarname <- data_train_clean %>% select(-X18.20_ride) %>% names()
+yvarname <- "X18.20_ride"
+
+set.seed(123)
+input_var1 <- sample(xvarname, 90)
+set.seed(234)
+input_var2 <- sample(xvarname, 90)
+
+input1 <- data_train_clean %>% select(input_var1,X18.20_ride) #90개 변수 뽑은 dataset (y포함)
+input2 <- data_train_clean %>% select(input_var2,X18.20_ride) #90개 변수 뽑은 dataset (y포함)
+
+test_x1 <- data_test_clean %>% select(input_var1)
+test_x2 <- data_test_clean %>% select(input_var2)
+
+#x_train <- data_train_clean %>% select(-X18.20_ride)
+#x_train[is.na(x_train)] <- 0
+#y_train <- data_train_clean$X18.20_ride #ytrain은 NA없음
+#x_test <- data_test_clean %>% select(-X18.20_ride)
+#x_test[is.na(x_test)] <- 0
+
+#2 1퍼뽑아서 *4 (seed 4번) = mtry  4개 (oob)
+set.seed(123)
+train_123 <- sample_n(input1,nrow(input1)*0.01)
+x_train_123 <- train_123 %>% select(-X18.20_ride)
+y_train_123 <- train_123$X18.20_ride
+set.seed(234)
+train_234 <- sample_n(input2,nrow(input2)*0.01)
+train_234 <- na.omit(train_234)
+x_train_234 <- train_234 %>% select(-X18.20_ride)
+y_train_234 <- train_234$X18.20_ride
+
+
+library(randomForest)
+set.seed(123)
+bestmtry_123 <- tuneRF(x_train_123,y_train_123,stepFactor=1.5,improve=1e-5,ntree=500)
+set.seed(234)
+bestmtry_234 <- tuneRF(x_train_234,y_train_234,stepFactor=1.5,improve=1e-5,ntree=500)
+
+
+#RF FIT
+input1_x <- input1 %>% select(-X18.20_ride)
+input2_x <- input2 %>% select(-X18.20_ride)
+rf.fit_123 = randomForest(y= input1$X18.20_ride, x=input1_x, mtry = 126, ntree = 500, importance = T)
+rf.fit_234 = randomForest(y= input2$X18.20_ride, x=input2_x, mtry = 56, ntree = 500, importance = T)
+
+#RF TEST
+pred1 <- predict(rf.fit_123,test_x1)
+pred2 <- predict(rf.fit_234,test_x2)
+
+#Geometric_mean
+final_pred <- (pred1*pred2*pred3*pred4)**(1/4) 
