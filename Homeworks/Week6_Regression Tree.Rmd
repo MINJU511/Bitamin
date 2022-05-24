@@ -1,0 +1,121 @@
+---
+title: "6주차 복습과제"
+author: "김민주"
+date: '2020 4 9 '
+output: html_document
+---
+
+```{r}
+library(MASS)
+str(Boston)
+head(Boston)
+```
+
+# 1. 주택가격을 예측하기 위한 회귀트리를 만들고자 한다.
+## 전체 데이터를 Train, Test (7:3) 으로 나눈 후 , 모델을 적합하라. 한 각 속성 중 가장 중요한 속성을 설명하라. (제시한 변수 설명 참고할 것.)
+
+```{r}
+library(caret)
+set.seed(6318)
+train_idx <- createDataPartition(Boston$medv,p=.7,list=F)
+train <- Boston[train_idx,]
+test <- Boston[-train_idx,]
+
+library(rpart)
+set.seed(6318)
+boston_reg.tr <- rpart(medv~.,data=train)
+summary(boston_reg.tr)
+boston_reg.tr
+```
+
+가장중요한 속성은 하위계층의 비율
+
+# 1-1. 적합한 모델을 토대로 plot을 그리고,가장 저렴한 집 값의 조건을 서술하고, RSS를 구하여 그 의미를 서술하라. (제시한 변수설명 참고할 것.)
+
+```{r}
+plot(boston_reg.tr);text(boston_reg.tr,cex=0.8)
+boston_pred <- predict(boston_reg.tr,test)
+(RSS <-sum((boston_pred-test$medv)^2))
+```
+
+- 가장 저렴한 집은 하위계층의 비율이 19.83이상일 때이다. 
+
+- RSS 는 test데이터에서 실제 주택의 가격과 트리를 통해 예측한 주택의 가격 차이의 제곱의 합을 의미하며, 이경우 RSS는 4002.266이다. 
+
+# 2. 과적합 방지를 위해 앞서 구한 모델을 가지치기 하려고 한다.
+## CP와 plot을 이용해 최적의 트리 크기를 구하고 그에 대한 근거를 구하시오.
+
+```{r}
+printcp(boston_reg.tr)
+plotcp(boston_reg.tr)
+```
+- 최적의 트리는 xerror를 최소화 시키는 cp값을 갖는 트리이다. 
+- 하지만 Breimen은  1984년에 1+SE rule이 실제적으로 가장 잘 작동한다는 논문을 썼다. It's common to instead use the smallest tree within 1 standard deviation of the minimum cross validation error (aka the 1+SE rule). 따라서 cp=0.021선택할수도 있겠다. (horizontal에 맞닿는 선 혹은 그것보다 바로 다음에 오는 CP값)
+- 하지만 우선은 여기선 minimum xerror를 갖는 cp값을 선택한다. 
+
+# 2-1. Pruning 과정 이후의 모델을 구하고, plot을 적합하라.
+# 또한 MAE와 상관관계 및 전체 예측값의 범위를 구하여, 모델 성능을 비교하라.
+
+```{r}
+set.seed(6318)
+boston_reg_prune <- prune.rpart(boston_reg.tr,cp=boston_reg.tr$cptable[which.min(boston_reg.tr$cptable[,"xerror"]),"CP"])
+boston_reg_prune
+
+plot(boston_reg_prune); text(boston_reg_prune,cex=0.8)
+boston_prune_pred <- predict(boston_reg_prune,test)
+
+#MAE
+MAE <- function(actual,predicted){
+  mean(abs(actual-predicted))
+}
+MAE(boston_pred,test$medv) ; MAE(boston_prune_pred,test$medv)
+
+#상관계수
+cor(boston_pred,test$medv) ; cor(boston_prune_pred,test$medv)
+
+#전체예측값의 범위
+summary(test$medv)
+summary(boston_pred) ; summary(boston_prune_pred)
+
+```
+
+# 3. 새로운 함수를 통해 모델을 적합하고자 한다.
+## 모델 트리를 이용하여 새로운 모델을 구하고 앞서 사용한 방법으로 모델 성능을 비교하라. 또한 주어진 조건의 예상 집 값을 해당 모델을 통해 구하라.
+
+```{r}
+library(RWeka)
+set.seed(6318)
+boston_rpart <- M5P(medv~.,data=train)
+boston_rpart
+summary(boston_rpart)
+plot(boston_rpart)
+
+boston_rpart_pred <- predict(boston_rpart,test)
+
+#MAE
+MAE(boston_pred,test$medv) ; MAE(boston_prune_pred,test$medv) ; MAE(boston_rpart_pred,test$medv)
+
+#상관계수
+cor(boston_pred,test$medv) ; cor(boston_prune_pred,test$medv) ; cor(boston_rpart_pred,test$medv)
+
+#전체예측값의 범위
+summary(test$medv)
+summary(boston_pred) ; summary(boston_prune_pred) ; summary(boston_rpart_pred)
+
+#내집값 예측하기 
+myhome <- data.frame(crim = 3.613,zn= 11.36,indus = 11.13,chas= 1, nox=0.554,rm= 6,age=68.57,dis= 3.795,rad= 9.5,
+                     tax = 408.2,ptratio = 18.4,black = 356,lstat = 12.6)
+(predict(boston_rpart,myhome))
+
+```
+
+
+
+
+
+
+
+
+
+
+

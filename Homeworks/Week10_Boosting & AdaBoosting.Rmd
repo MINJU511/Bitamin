@@ -1,0 +1,84 @@
+---
+title: "200520(10주차) 복습_김민주"
+author: "김민주"
+date: '2020 5 24 '
+output: html_document
+---
+```{r}
+library(dplyr)
+library(rpart)
+library(adabag)
+setwd("C:/김민주/EWHA/2020 VITAMIN/0520 10주차 Boosting & AdaBoosting/복습과제")
+loan <- read.csv("loan.csv", stringsAsFactors = TRUE)
+str(loan)
+
+#데이터 정리
+loan <- loan %>% 
+  # 이번 classification에 사용할 변수들만 선택, 추출
+  select("loan_status", "Principal", "age", "education", "Gender") %>% 
+  # target feature인 loan_status를 2개 범주로 변환 
+  mutate(loan_status = factor(ifelse(loan_status == "PAIDOFF", "Success", "Failure")))
+
+str(loan)
+
+set.seed(300)
+idx<-sample(1:nrow(loan),nrow(loan)*0.7)
+tr_loan<-loan[idx,]
+te_loan<-loan[-idx,]
+```
+
+#### 1-(1) mfinal=50, control은 깊이가 1이 되게끔 조정해서 Adaboosting을 해주세요.
+
+```{r}
+set.seed(300)
+loan_ada <- boosting(loan_status~., data=tr_loan, mfinal=50, control=rpart.control(maxdepth = 1))
+```
+
+#### 1-(2) importance를 구해 어떤 변수가 가장 중요한 변수인지 확인하고, plot을 그려보세요.
+
+```{r}
+loan_ada$importance
+importanceplot(loan_ada)
+```
+
+#### 2-(1) mfinal=70일 때의 boosting 함수를 만들어 준 뒤, tr_loan, te_loan을 이용해서 과적합 여부를 판단하세요.
+
+```{r}
+set.seed(300)
+loan_ada1 <- boosting(loan_status~., data=tr_loan, mfinal=70)
+loan_ada1_pred <- predict(loan_ada1, te_loan)
+loan_ada1_pred$confusion
+```
+과적합....인것 같진 않다
+
+#### 2-(2) 그렇게 생각한 이유를 서술하시오.
+딱히 predicted 와 actual이 일치하는 정도가 크지 않다..
+
+#### 3.
+2번에서 본인이 판단한 것에 기반해 최적의 mfinal을 찾아 보세요.(for loop 사용)
+(mfinal의 70에서 +-5까지만 해주세요. 5 이상이 넘어가면 시간이 너무 오래 걸립니다.)
+(2분만 기다리시면 결과가 나오니 기다려주세요.)
+
+```{r}
+accuracy <- c()
+for (i in 65:75){
+ set.seed(300) 
+ loan_model <- boosting(loan_status~., data=tr_loan, mfinal=i)
+ loan_prediction <- predict(loan_model, te_loan, type="class")
+ loan_accuracy <- loan_prediction$confusion[[1]]+loan_prediction$confusion[[4]]
+ accuracy <- c(accuracy,loan_accuracy)  #minsplit를 i번까지 했을 떄 각각의 accurary 저장
+}
+accuracy #mfinal = 66 에서 accuracy가장 높음.
+```
+최적의 mfinal = 66
+
+```{r}
+set.seed(300)
+loan_ada_80 <- boosting(loan_status~., data=tr_loan, mfinal=66)
+loan_ada_80_pred <- predict(loan_ada_80, te_loan)
+loan_ada_80_pred$confusion
+```
+
+
+
+

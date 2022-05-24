@@ -1,0 +1,92 @@
+---
+title: "2조 Decision tree 복습과제"
+author: "김규진 김민주 장은조"
+date: '2020 3 12 '
+output: html_document
+---
+
+HEART 데이터를 이용하여 rpart를 직접 해봅시다.
+
+<HERAT data설명>
+Heart 데이터는 흉부외과 환자 303명을 관찰한 데이터로, AHD 칼럼에 각 환자들이 심장병이 있는지 여부가 기록되어 있습니다.
+heart.csv에 담긴 데이터들의 칼럼은 아래와 같이 14개가 있습니다.
+
+1. age : 나이 (int)
+2. sex : 성별 (1, 0 / int)
+3. chest pain type (4 values)	: 가슴 통증 타입 (0 ~ 3 / int)
+4. resting blood pressure	: 혈압
+5. serum cholestoral in mg/dl	: 혈청 콜레스테롤
+6. fasting blood sugar > 120 mg/dl : 공복 혈당
+7. resting electrocardiographic results	: 심전도
+8. maximum heart rate achieved : 최대 심장박동 수
+9. exercise induced angina : 운동 유도 협심증 
+10. oldpeak = ST depression induced by exercise relative to rest : 노약 = 운동에 의해 유발되는 St 우울증
+11. the slope of the peak exercise ST segment	ST : 세그먼트의 기울기
+12. number of major vessels (0-3) colored by flourosopy	: 혈관의수
+13. thal : 3 = normal; 6 = fixed defect; 7 = reversible defect: thalassemia이라고 불리우는 혈관질병여부 
+
+## Q. Data load and inspection
+```{r}
+heart <- read.csv("Heart.csv", header=T)
+str(heart)
+```
+
+## Q. Dataset split with caret package seed = 4로 해주세요(train:test = 7:3)
+
+```{r}
+library(caret)
+set.seed(4)
+intrain=createDataPartition(y=heart$AHD, p=0.7,list = F)
+heart_train<-heart[intrain, ]
+heart_test<-heart[-intrain, ]
+```
+
+
+## Q. rpart 옵션에 가장 accurary를 높게하는 minsplit를 그리드서치를 통해서 찾으세요
+
+```{r}
+library(rpart)
+accuracy <- c()
+for (i in 1:20){
+ set.seed(234) 
+ heart_model <- rpart(AHD~., data=heart_train, method = "class", 
+                       control = rpart.control(minsplit=i))
+ heart_prediction <- predict(heart_model, heart_test, type='class')
+ heart_conf <- confusionMatrix(heart_prediction, heart_test$AHD)
+ heart_accuracy <- heart_conf$overall[1]
+ accuracy <- c(accuracy,heart_accuracy)  #minsplit를 i번까지 했을 떄 각각의 accurary 저장
+}
+accuracy #>> 가장 accurary좋은 minsplit을 찾되, 같은 accuracy값이면 minsplit은 가장 큰 값으로 골라주세요 (20)
+
+```
+
+
+## Q. Building model with rpart (Target변수 = AHD) and plotting
+rpart를 이용하여 tree를 만들고 그림을 그려주세요
+
+```{r}
+library(rpart)
+set.seed(234)
+heart_model<-rpart(AHD~. , data=heart_train, method="class", minsplit=20)
+plot(heart_model) ;text(heart_model, cex=0.8)
+```
+
+## Q. 과적합 방지를 위한 가지치기 with cp value having the minimum xerror
+cp table, cp ploting, prune한 모델 세우기, tree그림그리기
+```{r}
+printcp(heart_model)  
+plotcp(heart_model)
+heart_prune<-prune(heart_model, cp= heart_model$cptable[which.min(heart_model$cptable[,"xerror"]),"CP"])
+plot(heart_prune); text(heart_prune, cex=0.8)
+```
+
+## Q. Test data에서 Confusion matrix()로 성능비교 
+주의) confusionMatrix(pred,actual) 순서 조심~
+```{r} 
+heart_rpart_pred <- predict(heart_model,heart_test,type="class")
+confusionMatrix(heart_rpart_pred,heart_test$AHD)
+heart_rpart_prune_pred<-predict(heart_prune, heart_test, type='class')
+confusionMatrix(heart_rpart_prune_pred, heart_test$AHD)
+```
+
+

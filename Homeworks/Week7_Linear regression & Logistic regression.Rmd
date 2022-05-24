@@ -1,0 +1,112 @@
+---
+title: "7주차 복습과제"
+author: "김민주"
+date: '2020 4 16 '
+output: html_document
+---
+```{r}
+setwd("C:/김민주/EWHA/2020 VITAMIN/0415 7주차 선형회귀+로지스틱회귀/복습과제")
+states <- as.data.frame(state.x77)
+colnames(states)
+```
+
+# 1-1. states 데이터를 활용하여 살인사건 발생률(Murder) 을 종속변수로 하는 다중 선형 회귀 모델 'fit' 을 만들고 단계적 선택법 을 활용하여 최종적으로 선택된 변수들을 확인하고 새로운 모델 'fit2' 를 만들어 주세요
+
+```{r}
+fit <- lm(Murder~.,data=states)
+fit2 <- step(fit, direction = "both")
+summary(fit2)
+```
+
+# 1-2.‘fit2’에서 최종적으로 선택된 설명변수들은 무엇인가요
+Population,Illiteracy,Life Exp,Frost,Area
+
+Population이 1증가할때 murder(살인사건발생률)이 1.780e-04만큼 증가한다.  
+Area가 1증가할때 murder(살인사건발생률)이 6.804e-06만큼 증가한다. 
+
+
+# 2-1. 각 변수별로 오즈비 (Odds Ratio) 수치 값을 구하라. 
+(단, 모든 변수는 편의상 Factor 형으로 하자) (원래라면 , age 는 ordinal 이지만 , 본 과제에서는 X, Y 가 모두 범주형에 한하여 로지스틱회귀를 진행하기 위함임)
+
+```{r}
+case <- read.csv("사례연구3.csv",header=T)
+str(case)
+colnames(case) <- c("subject","age","teaching") #colname 깨져서 처리함. 
+str(case)
+
+library(nnet)
+case.logit <- multinom(teaching~.,data=case)
+case.logit
+```
+
+subject math에 대하여 오즈비는 exp(-3.1632882).
+subject science에 대하여 오즈비는 exp(-2.6050531).
+age에 대하여 오즈비는 exp(-0.1255433).
+
+
+# 2-2. 1 에서 구한 오즈비 (Odds 를 해석하라).
+
+* teaching의 reference값은 discuss이다. 
+따라서 강의형 수업방식에 대한 토론형 수업방식의 오즈에 대한 그 비율 즉 오즈비는 다음과 같다.
+
+* subject가 art일때에 비해 science일때 오즈비는 exp(-2.6050531),
+age가 1늘어날때 오즈비는 exp(-0.1255433) 이다. 
+age가 3늘어날때 오즈비는 exp(-0.1255433*3) 이다. 
+
+* 즉 과목이 예술일때에 비해 과학일때, 강의형수업방식에 비해 토론형 수업방식을 선택할 오즈가 0.07389921배 되는 것이다. 쉽게 말하면 과목이 과학일때는 강의형 수업방식을 선택할 확률이 증가한다.  
+
+* age가 10살이었다가 11살이 되면 강의형 수업방식에 비해 토론형수업방식을 선택할 오즈가 0.8820176배 된다. age가 10살이었다가 13살이 되면 강의형 수업방식에 비해 토론형수업방식을 선택할 오즈가 0.68617배 된다.
+
+(y=0 일때 discuss 이고 , y=1 일때 lecture 라고 볼 수 있으나, 이건 그저 categorical을 숫자로 변환한 것이기 때문에 그다지 유의미한 질문이라고 보이지 않음)
+
+
+# 2-3 . '2-2' 에서 로지스틱회귀의 오즈비를 구한 결과,
+# 그렇다면 "intercept(절편값)"도 다른변수 오즈비 (Odds Ratio) 해석에 포함해야할까 ??(T/F) 근거도 함께 제출
+(이 문제 역시 , X, Y 가 모두 범주형 categorical 에 한정하여 내는 문제라는 점 참고)
+
+F. 
+
+log(p/(1-p)) = intercept + beta1*X 이라는 식이 있다고 하자.
+odds = p/(1-p) = exp(intercept + beta1*X) 이된다. ...(1)
+odds ratio를 구하기 위해 x를 1증가시킨 odds를 구한다.
+log(p'/(1-p')) = intercept + beta1*(X+1)
+즉 odds = p'/(1-p') = exp(intercept + beta1*(X+1))...(2)
+
+이때 Odds ratio는 (2)식에서 (1)식을 나눈것이다. 
+odds ratio = exp(intercept + beta1*(X+1)) /  exp(intercept + beta1*X) = exp(beta1)
+따라서 절편값은 다른변수의 오즈비의 해석에 포함하지 않는다. 
+
+
+# 3-1. 데이터의 prog 변수에서 reference 변수를 "academic" 으로 재설정한 값을 prog2 라는 이름으로 데이터에 변수를 추가하세요.
+# 그 후, ses 와 write 변수를 X 변수로 하여 prog2 를 다중 로지스틱 회귀로 적합하고 , p value 까지 구해보세요.
+(hint : relevel()함수 , multinom () 함수)
+
+```{r}
+library(foreign)
+library(ggplot2)
+library(reshape2)
+
+m1 <- read.dta("http://stats.idre.ucla.edu/stat/data/hsbdemo.dta")
+with(m1,table(ses,prog))
+with(m1,do.call(rbind,tapply(write,prog,function(x) c(M=mean(x),SD=sd(x)))))
+```
+
+
+```{r}
+m1$prog2 <- relevel(m1$prog,ref = "academic")
+m1.logit <- multinom(prog2~ses+write,data=m1)
+m1.logit
+```
+# 3-2. 3-1 번에서 적합한 회귀계수에 대한 해석을 부탁합니다.
+(reference 변수를 반영하여 해주시면 됩니다 ! 세션 ppt 를 참고하시면 쉬울 것입니다)
+
+경제적 지위가 중간인 사람은 낮은 사람에 비해 아카데믹클래스보다 일반적인 클래스를 선택할 odds가 exp(-0.5332810)배 높다. 
+경제적 지위가 높은 사람은 낮은 사람에 비해 아카데믹클래스보다 일반적인 클래스를 선택할 odds가 exp(-1.1628226)배 높다. 
+write가 1 증가할때 아카데믹클래스보다 일반적인 클래스를 선택할 odds가 exp(-0.0579287)배 높다.
+
+경제적 지위가 중간인 사람은 낮은 사람에 비해 아카데믹클래스보다 직업 클래스를 선택할 odds가 exp(0.2913859)배 높다. 
+경제적 지위가 높은 사람은 낮은 사람에 비해 아카데믹클래스보다 직업 클래스를 선택할 odds가 exp(-0.9826649)배 높다. 
+write가 1 증가할때 아카데믹클래스보다 직업 클래스를 선택할 odds가 exp(-0.1136037)배 높다.
+
+
+

@@ -1,0 +1,60 @@
+---
+title: "200215(1주차) 복습_김민주"
+author: "Minju Kim"
+date: '2020 2 16 '
+output: html_document
+---
+```{r}
+rm(list=ls())
+data<-read.csv("insurance2.csv")
+data[ , c("sex","smoker","region")] = lapply(data[ , c("sex","smoker","region")], factor)
+data$bmi[is.na(data$bmi)]<-mean(data$bmi,na.rm=T)
+data$bmi30<-as.factor(ifelse(data$bmi>=30,"비만","정상"))
+```
+
+# 1. data를 train, test set으로 7:3 분할하여 각각 train, test라는 객체에 저장하세요.(seed : 123)
+
+```{r}
+set.seed(123)
+index<-sample(c("train","test"),size=nrow(data),replace=T,prob=c(0.7,0.3))
+table(index)
+train <- data[index=="train",]
+test <- data[index=="test",]
+```
+
+```{r}
+library(caret)
+set.seed(123)
+cv_list<-createFolds(train$charges,k=5)
+head(cv_list)
+```
+
+# 2.1 1번에서 만든 train을 위에서의 cv_list의 1번fold 즉, cv_list[[1]]의 index로 validation set을 만들어 train set과 validation set으로 나누고 각각 cv_train_set, cv_valid_set으로 지정하세요.
+
+```{r}
+cv_valid_set <- train[cv_list[[1]],]
+cv_train_set <- train[-cv_list[[1]],]
+```
+
+# 2.2 log(charges)~age+sex+children+region+bmi30*smoker 식과 cv_train_set을 활용하여 회귀모형을 만들고 cv_valid_set에서의 예측값을 뽑아 rmse를 계산하세요
+```{r}
+fit <- lm(log(charges)~age+sex+children+region+bmi30*smoker,cv_train_set)
+summary(fit)
+valid_rmse<-sqrt(sum((exp(predict(fit,newdata=cv_valid_set))-cv_valid_set$charges)^2)/(nrow(cv_valid_set)-fit$rank))
+valid_rmse
+```
+
+#3. 2.1번과 2.2번을 활용하여 for문으로 5-fold cross validation을 시행하고 rmse_m 이라는 객체에 저장하여 rmse 값들과 평균을 계산하세요.
+```{r}
+rmse_m <- rep(0,5)
+for(i in 1:5) {
+  cv_valid_set <- train[cv_list[[i]],]
+  cv_train_set <- train[-cv_list[[i]],]
+  fit_i <- lm(log(charges)~age+sex+children+region+bmi30*smoker,cv_train_set)
+  rmse_m[i] <- sqrt(sum((exp(predict(fit_i,newdata=cv_valid_set))-cv_valid_set$charges)^2)/(nrow(cv_valid_set)-fit_i$rank))
+}
+rmse_m
+(mean_rmse <- mean(rmse_m))
+```
+
+

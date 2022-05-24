@@ -1,0 +1,102 @@
+---
+title: "8주차복습과제"
+author: "김민주"
+date: '2020 4 26 '
+output: html_document
+---
+
+```{r}
+library(ade4)
+data("olympic")
+data<- olympic$tab
+summary(data)
+```
+
+
+```{r}
+data$"100"<-max(data$'100') - data$'100'
+data$'400'<-max(data$'400') - data$'400'
+data$'110'<-max(data$'110') - data$'110'
+data$'1500'<-max(data$'1500') - data$'1500'
+cor(data)
+
+```
+
+## 1. princomp 함수를 사용하여 공분산행렬과 상관계수 행렬로 pca를 한 결과를 각각 pca.cov , pca.cor로 저장하고 주성분 계수의 차이가 있는지 서술하고 답에대한 이유를 같이 서술하시오.
+
+```{r}
+pc.cov <- princomp(data,cor = F,scores = T)
+pc.cor <- princomp(data,cor = T,scores = T)
+
+pc.cov$loadings
+pc.cor$loadings
+```
+
+둘의 주성분계수의 차이가 있다.
+correaltion과 covariance로 만드는 주성분은 단위의 차이가 있기 때문이다. 
+
+## 2. Elbow method와 분산의 비율 및 누적 비율을 활용하여 pca.cor의 주성분 개수를 선택하라. 정해진 정답은 없으며 타당한 근거를 같이 제시하시오.
+
+```{r}
+summary(pc.cor)
+screeplot(pc.cor,type = "l",pch=19,main = "screeplot")
+```
+
+주성분개수는 3개로 채택하겠음.
+screeplot에서 주성분 3에서 급격히 꺾이기 때문이다. 주성분 3개와 4개의 분산비율이 크게 차이 나지 않으므로 3으로 한다. 
+
+
+## 3. pca.cor 을 가지고 주성분 1,2를 biplot을 통해 해석하시오.
+```{r}
+biplot(pc.cor,scale=F,cex=0.7)
+```
+
+
+pc1은 멀리뛰기, 110미터 허들,장대높이 뛰기가 높은 값을 가진다. 즉 순간적인 신체의 사용에 대한 변수로 보임.
+pc2는 1500미터 달리기,400미터달리기에서는 높은 값을 보이지만 원반던지기, 쇠공던지기 등에서는 낮은 값을 가진것을 보아 지구력에 대한 변수인것으로 보인다. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,134 @@
+---
+title: "9주차 Ensemble,RF 복습과제"
+author: "김민주"
+date: '2020 5 17 '
+output: html_document
+---
+
+```{r}
+library(caret)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+```
+
+```{r}
+setwd("C:/김민주/EWHA/2020 VITAMIN/0513 9주차 앙상블,랜포")
+wbcd <- read.csv("wisc_bc_data.csv")
+wbcd <- wbcd[-1]
+head(wbcd[,1:5])
+```
+
+### 1. createDataPartition을 사용하여 7:3으로 데이터를 traing / test set으로 분리 하세요. set.seed(1234)
+
+```{r}
+# 데이터 나누기 
+set.seed(1234)
+train.idx <- createDataPartition(wbcd$diagnosis,p=0.7,list=F)
+train <- wbcd[train.idx,]
+test <- wbcd[-train.idx,]
+dim(train)
+dim(test)
+```
+
+#### 1-1 Decision Tree vs RandomForst , 전 세션에서 배운 의사결정 나무와 랜덤포레스트를 비교하려 합니다. 각각 모델을 생성하고 적합하세요. set.seed(1234)
+
+```{r}
+#회귀트리
+set.seed(1234)
+wbcd.tr <- rpart(diagnosis~.,data=train)
+rpart.plot(wbcd.tr)
+```
+
+```{r}
+#랜덤포레스트
+set.seed(1234)
+train$diagnosis <- factor(train$diagnosis)
+wbcd.rf <- randomForest(diagnosis~.,data=train)
+wbcd.rf
+```
+
+#### 1-2 다음과 같이 위에서 적합한, 의사결정 나무와 랜덤포레스트를 각각 confusionmatrix을 이용하여 성능을 비교하고, 랜덤포레스트모델이 더 나은 성능을 보여주는 이유를 말해주세요.
+
+```{r}
+library(e1071)
+wbcd.tr_pred <- predict(wbcd.tr,test,type="class")
+confusionMatrix(wbcd.tr_pred,factor(test$diagnosis))
+wbcd.rf_pred <- predict(wbcd.rf,test,type="class")
+confusionMatrix(wbcd.rf_pred,factor(test$diagnosis))
+```
+랜덤포레스트는 배깅을 이용하기 때문에, 의사결정나무의 최대 단점인 large variance를 보완해준다. 이로인해 랜덤포레스트는 low bias, large variance를 가진다. 따라서 모델의 성능이 향상된다.
+
+#### 2-1 다음과 같이 6개의 붓스트랩 셋을 만들어 rpart.plot을 통해 각각의 부스트렙 셋 별 트리를 그려주세요.
+
+```{r}
+B_cla.rt <- c()
+for(i in 1:6){
+  B_idx <- sample(1:nrow(train),replace=T)
+  B_set <- train[B_idx,]
+  B_cla.rt[[i]] <- rpart(diagnosis~.,data=B_set)
+}
+
+#각각의 개별트리의 플랏
+par(mfrow=c(2,3))
+for(i in 1:6){
+  rpart.plot(B_cla.rt[[i]],cex=0.8)
+}
+par(mfrow=c(1,1))
+```
+
+##### 랜덤포레스트에서 부스트랩 기법을 사용하는 이유는 무엇인가요?
+여러개의 training data를 생성하여 각 데이터마다 개별 의사결정모델을 구축하여 diversity를 확보하기 위해서 이다. 
+
+
+##### 어떤 문제점을 보이고 있고,나아가 어떤 방법을 사용해 랜덤포레스트 모델은 이 문제점을 해결하나요 ?
+랜덤포레스트는 선형회귀모델이나 로지스틱 회귀모델과 달리 개별 변수가 통계적으로 얼마나 유의한지에 대한 정보를 제공하지 않음. 대신 랜덤포레스트는 oob error를 통해 변수의 중요도를 결정한다. 
+
+#### 2-2 다음으로는 랜덤포레스트 모델의 변수중요도를 plot하세요.
+
+```{r}
+varImpPlot(wbcd.rf)
+```
+
+#### 3-1 하이퍼 파라미터 튜닝을 해보려 합니다. 분석가는 M:Maligant(악성) 을 잘구분하는 모델을 만들고 싶어한다고 가정합니다. for 문을 이용해서 최적의 파라미터를 찾아보세요. 정답은 없습니다.
+
+```{r}
+customGrid <- expand.grid(ntree=c(50,75,100,150,200),mtry=c(4,5,6,7))
+customGrid
+```
+
+```{r}
+fitControl <- trainControl(method = "repeatedcv",number=10,repeats=3)
+metric  <- "FP Rate"
+FN <- c()
+for (i in 1:nrow(customGrid)){
+  #train model
+  set.seed(1234)
+  model <- randomForest(diagnosis~., 
+                        train,
+                        mtry = customGrid[i,"mtry"],
+                        ntree=customGrid[i,"ntree"])
+  #predict
+  pred <- predict(model, test, type="class")
+  table <- confusionMatrix(pred, factor(test$diagnosis))$table
+  FN[i] <- table[1,2]/(table[1,2]+table[2,2])
+  FN <- cbind(FN,FN[i])
+}
+
+FN[which.min(FN)] #False negative 최소일때 그 값 = 0.07936508
+customGrid[which.min(FN),] #ntree=150, mtry=5
+finalmodel <- randomForest(diagnosis~., train, mtry=5, ntree=150)
+confusionMatrix(predict(finalmodel, test, type="class"),factor(test$diagnosis))
+```
+
+
+
+
+
+
+
+
+
+
+
+
